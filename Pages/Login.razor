@@ -1,0 +1,65 @@
+@page "/login"
+@inject AuthService AuthService
+@inject NavigationManager Nav
+
+<h3>Iniciar sesión</h3>
+
+<div class="mb-3">
+    <label class="form-label">Tipo Documento</label>
+    <input class="form-control" @bind="tipoDocumento" />
+</div>
+<div class="mb-3">
+    <label class="form-label">Numero Documento</label>
+    <input class="form-control" @bind="numeroDocumento" />
+</div>
+<div class="mb-3">
+    <label class="form-label">Password</label>
+    <input type="password" class="form-control" @bind="password" @onkeyup="OnKeyUp" />
+</div>
+
+<button class="btn btn-primary" disabled="@cargando" @onclick="OnLoginClicked">
+    @(cargando ? "Ingresando..." : "Ingresar")
+</button>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger mt-3">@errorMessage</div>
+}
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string tipoDocumento = "CC";
+    private string numeroDocumento = "";
+    private string password = "";
+    private string errorMessage = "";
+    private bool cargando;
+
+    private async Task OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await OnLoginClicked();
+    }
+
+    private async Task OnLoginClicked()
+    {
+        errorMessage = string.Empty;
+        cargando = true;
+        try
+        {
+            var result = await AuthService.LoginAsync(new AuthService.LoginRequest(tipoDocumento, numeroDocumento, password));
+            if (!result.IsSuccess)
+            {
+                errorMessage = result.Error ?? "Error de autenticación";
+                return;
+            }
+
+            Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/profile" : ReturnUrl);
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+}

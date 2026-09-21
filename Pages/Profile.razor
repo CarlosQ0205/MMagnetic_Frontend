@@ -1,0 +1,26 @@
+@page "/profile"
+@inject AuthService AuthService
+
+<h3>Perfil</h3>
+
+@if (user is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <dl class="row">
+        <dt class="col-sm-3">UsuarioId</dt><dd class="col-sm-9">@user.UsuarioId</dd>
+        <dt class="col-sm-3">Nombre</dt><dd class="col-sm-9">@user.PrimerNombre @user.PrimerApellido</dd>
+        <dt class="col-sm-3">Correo</dt><dd class="col-sm-9">@user.CorreoElectronico</dd>
+    </dl>
+}
+
+@code {
+    private AuthService.UserInfo? user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await AuthService.GetCurrentUserAsync();
+    }
+}

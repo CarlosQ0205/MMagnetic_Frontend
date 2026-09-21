@@ -1,0 +1,15 @@
+@page "/"
+
+<PageTitle>MMagnetic</PageTitle>
+
+<h1>MMagnetic</h1>
+<p>Gestión de clientes e información exógena (Formato 1019 DIAN).</p>
+
+<AuthorizeView>
+    <Authorized>
+        <p>Sesión iniciada. Usa el menú para ir a Clientes o Formato 1019.</p>
+    </Authorized>
+    <NotAuthorized>
+        <a class="btn btn-primary" href="login">Iniciar sesión</a>
+    </NotAuthorized>
+</AuthorizeView>

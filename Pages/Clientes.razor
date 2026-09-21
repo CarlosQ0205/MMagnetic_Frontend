@@ -1,0 +1,249 @@
+@page "/clientes"
+@attribute [Authorize(Roles = "Admin")]
+@inject ExogenaApiClient Api
+
+<h3>Clientes</h3>
+
+@if (mensajeError is not null)
+{
+    <div class="alert alert-danger">@mensajeError</div>
+}
+
+<div class="card mb-4">
+    <div class="card-header">@(editandoId is null ? "Nuevo cliente" : "Editar cliente")</div>
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-md-2">
+                <label class="form-label">Tipo Doc.</label>
+                <input class="form-control" @bind="form.TipoDocumento" placeholder="CC" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Número documento</label>
+                <input class="form-control" @bind="form.NumeroDocumento" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Primer nombre</label>
+                <input class="form-control" @bind="form.PrimerNombre" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Primer apellido</label>
+                <input class="form-control" @bind="form.PrimerApellido" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Razón social (persona jurídica)</label>
+                <input class="form-control" @bind="form.RazonSocial" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Correo electrónico</label>
+                <input class="form-control" @bind="form.CorreoElectronico" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Código país</label>
+                <input class="form-control" @bind="form.CodigoPais" placeholder="169" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Código depto.</label>
+                <input class="form-control" @bind="form.CodigoDepartamento" placeholder="05" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Código municipio</label>
+                <input class="form-control" @bind="form.CodigoMunicipio" placeholder="001" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Dirección</label>
+                <input class="form-control" @bind="form.Direccion" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Teléfono</label>
+                <input class="form-control" @bind="form.Telefono" />
+            </div>
+        </div>
+
+        @if (erroresForm.Count > 0)
+        {
+            <ul class="text-danger mt-2 mb-0">
+                @foreach (var error in erroresForm)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        }
+
+        <div class="mt-3">
+            <button class="btn btn-primary" disabled="@guardando" @onclick="GuardarAsync">
+                @(guardando ? "Guardando..." : editandoId is null ? "Crear" : "Actualizar")
+            </button>
+            @if (editandoId is not null)
+            {
+                <button class="btn btn-secondary ms-2" @onclick="CancelarEdicion">Cancelar</button>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Carga masiva (.xlsx o .csv)</div>
+    <div class="card-body">
+        <p class="text-muted">
+            Columnas esperadas: TipoDocumento, NumeroDocumento, RazonSocial, PrimerNombre, SegundoNombre,
+            PrimerApellido, SegundoApellido, FechaNacimiento, Direccion, Telefono, CorreoElectronico,
+            CodigoPais, CodigoDepartamento, CodigoMunicipio, DigitoVerificacion.
+        </p>
+        <InputFile OnChange="CargarArchivoAsync" accept=".xlsx,.csv" disabled="@cargandoArchivo" />
+
+        @if (resultadoCarga is not null)
+        {
+            <div class="alert @(resultadoCarga.ConErrores == 0 ? "alert-success" : "alert-warning") mt-3">
+                Total: @resultadoCarga.TotalFilas — Exitosas: @resultadoCarga.Exitosas — Con errores: @resultadoCarga.ConErrores
+            </div>
+
+            @if (resultadoCarga.Errores.Count > 0)
+            {
+                <table class="table table-sm">
+                    <thead><tr><th>Fila</th><th>Error</th></tr></thead>
+                    <tbody>
+                        @foreach (var error in resultadoCarga.Errores)
+                        {
+                            <tr><td>@error.Fila</td><td>@error.Mensaje</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+    </div>
+</div>
+
+@if (clientes is null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Tipo Doc.</th>
+                <th>Número</th>
+                <th>Nombre / Razón social</th>
+                <th>Correo</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var cliente in clientes)
+            {
+                <tr>
+                    <td>@cliente.TipoDocumento</td>
+                    <td>@cliente.NumeroDocumento</td>
+                    <td>@(string.IsNullOrWhiteSpace(cliente.RazonSocial) ? $"{cliente.PrimerNombre} {cliente.PrimerApellido}" : cliente.RazonSocial)</td>
+                    <td>@cliente.CorreoElectronico</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EditarAsync(cliente)">Editar</button>
+                        <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => DesactivarAsync(cliente.ClienteId)">Desactivar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Cliente>? clientes;
+    private ClienteDto form = new();
+    private Guid? editandoId;
+    private List<string> erroresForm = new();
+    private string? mensajeError;
+    private bool guardando;
+    private bool cargandoArchivo;
+    private ResultadoCargaMasiva? resultadoCarga;
+
+    protected override async Task OnInitializedAsync() => await CargarListaAsync();
+
+    private async Task CargarListaAsync()
+    {
+        try
+        {
+            clientes = await Api.ListarClientesAsync();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo cargar la lista de clientes: {ex.Message}";
+        }
+    }
+
+    private async Task GuardarAsync()
+    {
+        guardando = true;
+        erroresForm.Clear();
+        try
+        {
+            var resultado = editandoId is null
+                ? await Api.CrearClienteAsync(form)
+                : await Api.ActualizarClienteAsync(editandoId.Value, form);
+
+            if (!resultado.Exitoso)
+            {
+                erroresForm = resultado.Errores;
+                return;
+            }
+
+            CancelarEdicion();
+            await CargarListaAsync();
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private void EditarAsync(Cliente cliente)
+    {
+        editandoId = cliente.ClienteId;
+        form = new ClienteDto
+        {
+            TipoDocumento = cliente.TipoDocumento,
+            NumeroDocumento = cliente.NumeroDocumento,
+            RazonSocial = cliente.RazonSocial,
+            PrimerNombre = cliente.PrimerNombre,
+            SegundoNombre = cliente.SegundoNombre,
+            PrimerApellido = cliente.PrimerApellido,
+            SegundoApellido = cliente.SegundoApellido,
+            FechaNacimiento = cliente.FechaNacimiento,
+            Direccion = cliente.Direccion,
+            Telefono = cliente.Telefono,
+            CorreoElectronico = cliente.CorreoElectronico,
+        };
+    }
+
+    private void CancelarEdicion()
+    {
+        editandoId = null;
+        form = new ClienteDto();
+        erroresForm.Clear();
+    }
+
+    private async Task DesactivarAsync(Guid clienteId)
+    {
+        await Api.DesactivarClienteAsync(clienteId);
+        await CargarListaAsync();
+    }
+
+    private async Task CargarArchivoAsync(InputFileChangeEventArgs e)
+    {
+        cargandoArchivo = true;
+        resultadoCarga = null;
+        try
+        {
+            resultadoCarga = await Api.CargarClientesMasivoAsync(e.File);
+            await CargarListaAsync();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo procesar el archivo: {ex.Message}";
+        }
+        finally
+        {
+            cargandoArchivo = false;
+        }
+    }
+}
