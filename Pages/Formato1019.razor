@@ -13,11 +13,27 @@
                 <label class="form-label">Período (año)</label>
                 <input type="number" class="form-control" @bind="periodoAno" />
             </div>
-            <div class="col-md-3">
-                <button class="btn btn-primary w-100" disabled="@clasificando" @onclick="ClasificarAsync">
-                    @(clasificando ? "Clasificando..." : "Clasificar")
-                </button>
-            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mt-3">
+            <button class="btn btn-primary" disabled="@clasificando" @onclick="ClasificarAsync">
+                @(clasificando ? "Creando..." : "Crear Formato 1019")
+            </button>
+            <button class="btn btn-outline-secondary" disabled="@descargando" @onclick="DescargarStagingAsync">
+                Descarga Formato 1019
+            </button>
+            <button class="btn btn-outline-danger" disabled="@borrando" @onclick="BorrarPeriodoAsync">
+                @(borrando ? "Borrando..." : "Borra tabla Formato 1019")
+            </button>
+            <button class="btn btn-outline-danger" disabled="@descargando" @onclick="DescargarErroresAsync">
+                Descarga errores F-1019
+            </button>
+            <button class="btn btn-outline-primary" @onclick="ToggleSubirCorregidos">
+                Subir corregidos F-1019
+            </button>
+            <button class="btn btn-outline-success" disabled="@descargando" @onclick="DescargarDefinitivoAsync">
+                Descarga F-1019 Definitivos
+            </button>
         </div>
 
         @if (resumen is not null)
@@ -27,6 +43,11 @@
             </div>
         }
 
+        @if (mensajeInfo is not null)
+        {
+            <div class="alert alert-success mt-3">@mensajeInfo</div>
+        }
+
         @if (mensajeError is not null)
         {
             <div class="alert alert-danger mt-3">@mensajeError</div>
@@ -34,35 +55,54 @@
     </div>
 </div>
 
-@if (resumen is not null)
+@if (mostrarSubirCorregidos)
 {
     <div class="card mb-4">
-        <div class="card-header">Descargar resultados del período</div>
+        <div class="card-header">Subir corregidos F-1019</div>
         <div class="card-body">
-            <div class="d-flex flex-wrap gap-2">
-                <button class="btn btn-outline-secondary" disabled="@descargando" @onclick="DescargarStagingAsync">
-                    1. Descargar Formato_1019 (@staging.Count)
-                </button>
-                <button class="btn btn-outline-danger" disabled="@descargando" @onclick="DescargarErroresAsync">
-                    2. Descargar Formato_Errores (@errores.Count)
-                </button>
-                <button class="btn btn-outline-success" disabled="@descargando" @onclick="DescargarDefinitivoAsync">
-                    3. Descargar F_1019_Definitivo (@definitivo.Count)
-                </button>
+            <p class="text-muted">
+                El Excel de <strong>Formato_Errores</strong> trae la línea completa de cada cliente/cuenta con
+                problema. Corrígela ahí y vuelve a subir el archivo correspondiente aquí mismo (usa el mismo
+                formato de columnas de la carga masiva de Clientes o Datos Financieros). Luego vuelve a apretar
+                "Crear Formato 1019" arriba — reemplaza el resultado anterior sin duplicar.
+            </p>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Clientes / Cotitulares corregidos (.xlsx o .csv)</label>
+                    <InputFile OnChange="CargarClientesCorregidosAsync" accept=".xlsx,.csv" disabled="@cargandoArchivo" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Datos financieros corregidos (.xlsx o .csv)</label>
+                    <InputFile OnChange="CargarDatosFinancierosCorregidosAsync" accept=".xlsx,.csv" disabled="@cargandoArchivo" />
+                </div>
             </div>
 
-            @if (errores.Count > 0)
+            @if (resultadoCarga is not null)
             {
-                <p class="text-muted mt-3 mb-0">
-                    El Excel de <strong>Formato_Errores</strong> trae la línea completa de cada cliente/cuenta con
-                    problema (no solo el dato que falló). Corrígela ahí y vuelve a subir el archivo en
-                    <a href="clientes">Clientes ▸ Información Clientes/Cotitulares/Datos Financieros</a> según
-                    corresponda. Luego vuelve a apretar "Clasificar" arriba — reemplaza el resultado anterior sin duplicar.
-                </p>
+                <div class="alert @(resultadoCarga.ConErrores == 0 ? "alert-success" : "alert-warning") mt-3">
+                    Total: @resultadoCarga.TotalFilas — Exitosas: @resultadoCarga.Exitosas — Con errores: @resultadoCarga.ConErrores
+                </div>
+
+                @if (resultadoCarga.Errores.Count > 0)
+                {
+                    <table class="table table-sm">
+                        <thead><tr><th>Fila</th><th>Error</th></tr></thead>
+                        <tbody>
+                            @foreach (var error in resultadoCarga.Errores)
+                            {
+                                <tr><td>@error.Fila</td><td>@error.Mensaje</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
             }
         </div>
     </div>
+}
 
+@if (resumen is not null || staging.Count > 0 || errores.Count > 0 || definitivo.Count > 0)
+{
     <div class="card mb-4">
         <div class="card-header">
             <ul class="nav nav-tabs card-header-tabs">
@@ -167,8 +207,14 @@
     private int periodoAno = DateTime.UtcNow.Year;
     private bool clasificando;
     private bool descargando;
+    private bool borrando;
     private ResumenClasificacion? resumen;
     private string? mensajeError;
+    private string? mensajeInfo;
+
+    private bool mostrarSubirCorregidos;
+    private bool cargandoArchivo;
+    private ResultadoCargaMasiva? resultadoCarga;
 
     private string tab = "staging";
     private bool cargandoTablas;
@@ -187,6 +233,7 @@
     {
         clasificando = true;
         mensajeError = null;
+        mensajeInfo = null;
         resumen = null;
         try
         {
@@ -204,6 +251,90 @@
         finally
         {
             clasificando = false;
+        }
+    }
+
+    private async Task BorrarPeriodoAsync()
+    {
+        var confirmado = await JS.InvokeAsync<bool>("confirm",
+            $"¿Seguro que quieres borrar Formato_1019, Formato_Errores y F_1019_Definitivo del período {periodoAno}? Esta acción no se puede deshacer.");
+        if (!confirmado)
+            return;
+
+        borrando = true;
+        mensajeError = null;
+        mensajeInfo = null;
+        try
+        {
+            await Api.LimpiarPeriodoAsync(periodoAno);
+            resumen = null;
+            staging = new();
+            errores = new();
+            definitivo = new();
+            mensajeInfo = $"Se borró el resultado del período {periodoAno}. Puedes volver a apretar \"Crear Formato 1019\" para rehacer el proceso.";
+        }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo borrar el período: {ex.Message}";
+        }
+        finally
+        {
+            borrando = false;
+        }
+    }
+
+    private void ToggleSubirCorregidos()
+    {
+        mostrarSubirCorregidos = !mostrarSubirCorregidos;
+    }
+
+    private async Task CargarClientesCorregidosAsync(InputFileChangeEventArgs e)
+    {
+        cargandoArchivo = true;
+        resultadoCarga = null;
+        mensajeError = null;
+        try
+        {
+            resultadoCarga = await Api.CargarClientesMasivoAsync(e.File);
+        }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo procesar el archivo de clientes: {ex.Message}";
+        }
+        finally
+        {
+            cargandoArchivo = false;
+        }
+    }
+
+    private async Task CargarDatosFinancierosCorregidosAsync(InputFileChangeEventArgs e)
+    {
+        cargandoArchivo = true;
+        resultadoCarga = null;
+        mensajeError = null;
+        try
+        {
+            resultadoCarga = await Api.CargarDatosFinancierosMasivoAsync(e.File);
+        }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo procesar el archivo de datos financieros: {ex.Message}";
+        }
+        finally
+        {
+            cargandoArchivo = false;
         }
     }
 
@@ -233,6 +364,7 @@
     private async Task DescargarAsync(Func<int, Task<(byte[] Contenido, string NombreArchivo)>> descarga, string etiqueta)
     {
         descargando = true;
+        mensajeError = null;
         try
         {
             var (contenido, nombreArchivo) = await descarga(periodoAno);

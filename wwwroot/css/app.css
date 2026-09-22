@@ -1,5 +1,16 @@
+:root {
+    --mm-fondo: #F8FAFC;
+    --mm-texto: #0F172A;
+    --mm-nav: #064E3B;
+    --mm-acento: #10B981;
+    --mm-acento-oscuro: #0B815A;
+    --mm-tarjeta: #FFFFFF;
+}
+
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: var(--mm-fondo);
+    color: var(--mm-texto);
 }
 
 h1:focus {
@@ -7,17 +18,26 @@ h1:focus {
 }
 
 a, .btn-link {
-    color: #0071c1;
+    color: var(--mm-acento-oscuro);
 }
 
 .btn-primary {
     color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    background-color: var(--mm-acento);
+    border-color: var(--mm-acento-oscuro);
 }
 
+    .btn-primary:hover, .btn-primary:active {
+        background-color: var(--mm-acento-oscuro);
+        border-color: var(--mm-acento-oscuro);
+    }
+
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem var(--mm-acento);
+}
+
+.card {
+    background-color: var(--mm-tarjeta);
 }
 
 .content {

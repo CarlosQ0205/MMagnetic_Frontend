@@ -119,6 +119,13 @@ public class ExogenaApiClient
     public Task<(byte[] Contenido, string NombreArchivo)> DescargarDefinitivoAsync(int periodoAno)
         => DescargarArchivoAsync($"api/formato1019/definitivo/{periodoAno}/exportar", $"f1019_definitivo_{periodoAno}.xlsx");
 
+    public async Task LimpiarPeriodoAsync(int periodoAno)
+    {
+        var respuesta = await _http.DeleteAsync($"api/formato1019/{periodoAno}");
+        await LanzarSiSesionExpiroAsync(respuesta);
+        respuesta.EnsureSuccessStatusCode();
+    }
+
     public async Task<ResultadoApi<(byte[] Contenido, string NombreArchivo)>> ExportarAsync(
         int periodoAno, int numEnvio, int codCpt, DateTime fecInicial, DateTime fecFinal)
     {
