@@ -1,0 +1,265 @@
+@page "/datos-financieros"
+@attribute [Authorize(Roles = "Admin")]
+@inject ExogenaApiClient Api
+
+<h3>Datos financieros</h3>
+
+@if (mensajeError is not null)
+{
+    <div class="alert alert-danger">@mensajeError</div>
+}
+
+<div class="card mb-4">
+    <div class="card-header">Nueva cuenta / período</div>
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label">Cliente</label>
+                <select class="form-select" @bind="form.NumeroDocumentoCliente">
+                    <option value="">-- Selecciona --</option>
+                    @foreach (var cliente in clientes)
+                    {
+                        <option value="@cliente.NumeroDocumento">@cliente.NumeroDocumento - @NombreCliente(cliente)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Período (año)</label>
+                <input type="number" class="form-control" @bind="form.PeriodoAno" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Número de cuenta</label>
+                <input class="form-control" @bind="form.NumeroCuenta" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Tipo de cuenta (0-9)</label>
+                <input type="number" class="form-control" @bind="form.TipoCuenta" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Código exención (0-99)</label>
+                <input type="number" class="form-control" @bind="form.CodigoExencion" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Saldo final</label>
+                <input type="number" class="form-control" @bind="form.Saldo" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Promedio saldo final</label>
+                <input type="number" class="form-control" @bind="form.PromedioSaldoFinal" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Mediana saldo diario</label>
+                <input type="number" class="form-control" @bind="form.MedianaSaldoDiario" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Saldo máximo</label>
+                <input type="number" class="form-control" @bind="form.SaldoMaximo" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Saldo mínimo</label>
+                <input type="number" class="form-control" @bind="form.SaldoMinimo" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Valor mov. crédito</label>
+                <input type="number" class="form-control" @bind="form.ValorMovCredito" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Núm. mov. crédito</label>
+                <input type="number" class="form-control" @bind="form.NumMovCredito" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Promedio mov. crédito</label>
+                <input type="number" class="form-control" @bind="form.PromedioMovCredito" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Mediana mov. crédito</label>
+                <input type="number" class="form-control" @bind="form.MedianaMovCredito" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Valor mov. débito</label>
+                <input type="number" class="form-control" @bind="form.ValorMovDebito" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Núm. mov. débito</label>
+                <input type="number" class="form-control" @bind="form.NumMovDebito" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Promedio mov. débito</label>
+                <input type="number" class="form-control" @bind="form.PromedioMovDebito" />
+            </div>
+        </div>
+
+        @if (erroresForm.Count > 0)
+        {
+            <ul class="text-danger mt-2 mb-0">
+                @foreach (var error in erroresForm)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        }
+
+        <button class="btn btn-primary mt-3" disabled="@guardando" @onclick="GuardarAsync">
+            @(guardando ? "Guardando..." : "Crear")
+        </button>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Carga masiva (.xlsx o .csv)</div>
+    <div class="card-body">
+        <p class="text-muted">
+            Columnas esperadas: NumeroDocumentoCliente, PeriodoAno, NumeroCuenta, TipoCuenta, CodigoExencion,
+            Saldo, PromedioSaldoFinal, MedianaSaldoDiario, SaldoMaximo, SaldoMinimo, ValorMovCredito,
+            NumMovCredito, PromedioMovCredito, MedianaMovCredito, ValorMovDebito, NumMovDebito, PromedioMovDebito.
+            Recargar el mismo cliente+cuenta+período actualiza en vez de duplicar.
+        </p>
+        <InputFile OnChange="CargarArchivoAsync" accept=".xlsx,.csv" disabled="@cargandoArchivo" />
+
+        @if (resultadoCarga is not null)
+        {
+            <div class="alert @(resultadoCarga.ConErrores == 0 ? "alert-success" : "alert-warning") mt-3">
+                Total: @resultadoCarga.TotalFilas — Exitosas: @resultadoCarga.Exitosas — Con errores: @resultadoCarga.ConErrores
+            </div>
+
+            @if (resultadoCarga.Errores.Count > 0)
+            {
+                <table class="table table-sm">
+                    <thead><tr><th>Fila</th><th>Error</th></tr></thead>
+                    <tbody>
+                        @foreach (var error in resultadoCarga.Errores)
+                        {
+                            <tr><td>@error.Fila</td><td>@error.Mensaje</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Consultar cuentas de un cliente</div>
+    <div class="card-body">
+        <select class="form-select mb-3" @bind="clienteConsultaDocumento" @bind:after="ConsultarAsync">
+            <option value="">-- Selecciona un cliente --</option>
+            @foreach (var cliente in clientes)
+            {
+                <option value="@cliente.NumeroDocumento">@cliente.NumeroDocumento - @NombreCliente(cliente)</option>
+            }
+        </select>
+
+        @if (datosCliente is not null)
+        {
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr><th>Período</th><th>Cuenta</th><th>Tipo</th><th>Saldo</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var dato in datosCliente)
+                        {
+                            <tr>
+                                <td>@dato.PeriodoAno</td>
+                                <td>@dato.NumeroCuenta</td>
+                                <td>@dato.TipoCuenta</td>
+                                <td>@dato.Saldo</td>
+                                <td><button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarAsync(dato.DatoFinancieroId)">Eliminar</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Cliente> clientes = new();
+    private DatoFinancieroDto form = new();
+    private List<string> erroresForm = new();
+    private string? mensajeError;
+    private bool guardando;
+    private bool cargandoArchivo;
+    private ResultadoCargaMasiva? resultadoCarga;
+
+    private string clienteConsultaDocumento = "";
+    private List<DatoFinanciero>? datosCliente;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            clientes = await Api.ListarClientesAsync();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo cargar la lista de clientes: {ex.Message}";
+        }
+    }
+
+    private static string NombreCliente(Cliente cliente)
+        => string.IsNullOrWhiteSpace(cliente.RazonSocial) ? $"{cliente.PrimerNombre} {cliente.PrimerApellido}" : cliente.RazonSocial!;
+
+    private async Task GuardarAsync()
+    {
+        guardando = true;
+        erroresForm.Clear();
+        try
+        {
+            var resultado = await Api.CrearDatoFinancieroAsync(form);
+            if (!resultado.Exitoso)
+            {
+                erroresForm = resultado.Errores;
+                return;
+            }
+
+            form = new DatoFinancieroDto();
+            if (!string.IsNullOrWhiteSpace(clienteConsultaDocumento))
+                await ConsultarAsync();
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private async Task CargarArchivoAsync(InputFileChangeEventArgs e)
+    {
+        cargandoArchivo = true;
+        resultadoCarga = null;
+        try
+        {
+            resultadoCarga = await Api.CargarDatosFinancierosMasivoAsync(e.File);
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo procesar el archivo: {ex.Message}";
+        }
+        finally
+        {
+            cargandoArchivo = false;
+        }
+    }
+
+    private async Task ConsultarAsync()
+    {
+        if (string.IsNullOrWhiteSpace(clienteConsultaDocumento))
+        {
+            datosCliente = null;
+            return;
+        }
+
+        var cliente = clientes.FirstOrDefault(c => c.NumeroDocumento == clienteConsultaDocumento);
+        if (cliente is null)
+            return;
+
+        datosCliente = await Api.ListarDatosFinancierosAsync(cliente.ClienteId);
+    }
+
+    private async Task EliminarAsync(Guid datoFinancieroId)
+    {
+        await Api.EliminarDatoFinancieroAsync(datoFinancieroId);
+        await ConsultarAsync();
+    }
+}

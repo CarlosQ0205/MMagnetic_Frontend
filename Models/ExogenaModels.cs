@@ -106,9 +106,9 @@ public record ErrorFormato1019Dto(
     Guid ErrorId, Guid? ClienteId, string? NumeroDocumentoCliente,
     string CodigoError, string? DescripcionError, string? ValorInvalido, string? Nivel, DateTime FechaError);
 
-public record Formato1019DefinitivoDto(
-    Guid Formato1019DefinitivoId, Guid? ClienteId, int PeriodoAno, byte? PeriodoMes,
-    string CodigoConcepto, decimal Valor, string? Descripcion, string? Linea, DateTime FechaGeneracion);
+public record Formato1019ConceptoDto(
+    Guid Formato1019Id, Guid? ClienteId, string? NumeroDocumentoCliente, int PeriodoAno,
+    string CodigoConcepto, decimal Valor, string? Linea, DateTime FechaGeneracion);
 
 /// <summary>Resultado genérico de una operación de alta/edición: o hay dato, o hay lista de errores.</summary>
 public class ResultadoApi<T>

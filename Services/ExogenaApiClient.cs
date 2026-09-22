@@ -88,11 +88,24 @@ public class ExogenaApiClient
         return await respuesta.Content.ReadFromJsonAsync<ResumenClasificacion>();
     }
 
+    public async Task<List<Formato1019ConceptoDto>> ObtenerStagingAsync(int periodoAno)
+        => await _http.GetFromJsonAsync<List<Formato1019ConceptoDto>>($"api/formato1019/{periodoAno}") ?? new();
+
     public async Task<List<ErrorFormato1019Dto>> ObtenerErroresAsync(int periodoAno)
         => await _http.GetFromJsonAsync<List<ErrorFormato1019Dto>>($"api/formato1019/errores/{periodoAno}") ?? new();
 
-    public async Task<List<Formato1019DefinitivoDto>> ObtenerDefinitivoAsync(int periodoAno)
-        => await _http.GetFromJsonAsync<List<Formato1019DefinitivoDto>>($"api/formato1019/definitivo/{periodoAno}") ?? new();
+    public async Task<(byte[] Contenido, string NombreArchivo)> DescargarErroresAsync(int periodoAno)
+    {
+        var respuesta = await _http.GetAsync($"api/formato1019/errores/{periodoAno}/exportar");
+        respuesta.EnsureSuccessStatusCode();
+
+        var contenido = await respuesta.Content.ReadAsByteArrayAsync();
+        var nombreArchivo = respuesta.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? $"errores_formato1019_{periodoAno}.xlsx";
+        return (contenido, nombreArchivo);
+    }
+
+    public async Task<List<Formato1019ConceptoDto>> ObtenerDefinitivoAsync(int periodoAno)
+        => await _http.GetFromJsonAsync<List<Formato1019ConceptoDto>>($"api/formato1019/definitivo/{periodoAno}") ?? new();
 
     public async Task<ResultadoApi<(byte[] Contenido, string NombreArchivo)>> ExportarAsync(
         int periodoAno, int numEnvio, int codCpt, DateTime fecInicial, DateTime fecFinal)

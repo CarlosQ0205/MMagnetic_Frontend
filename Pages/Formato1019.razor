@@ -1,0 +1,247 @@
+@page "/formato1019"
+@attribute [Authorize(Roles = "Admin")]
+@inject ExogenaApiClient Api
+@inject IJSRuntime JS
+
+<h3>Formato 1019 (DIAN)</h3>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Período (año)</label>
+                <input type="number" class="form-control" @bind="periodoAno" />
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100" disabled="@clasificando" @onclick="ClasificarAsync">
+                    @(clasificando ? "Clasificando..." : "Clasificar")
+                </button>
+            </div>
+        </div>
+
+        @if (resumen is not null)
+        {
+            <div class="alert @(resumen.ConErrores == 0 ? "alert-success" : "alert-warning") mt-3">
+                Total: @resumen.TotalRegistros — Válidos: @resumen.Validos — Con errores: @resumen.ConErrores
+            </div>
+
+            @if (resumen.ConErrores > 0)
+            {
+                <button class="btn btn-outline-danger" disabled="@descargandoErrores" @onclick="DescargarErroresAsync">
+                    @(descargandoErrores ? "Generando..." : "Descargar errores (Excel)")
+                </button>
+                <p class="text-muted mt-2">
+                    Corrige la línea completa en el Excel y súbela de nuevo en
+                    <a href="clientes">Clientes</a> o Datos financieros. Luego vuelve a "Clasificar".
+                </p>
+            }
+        }
+
+        @if (mensajeError is not null)
+        {
+            <div class="alert alert-danger mt-3">@mensajeError</div>
+        }
+    </div>
+</div>
+
+@if (resumen is not null)
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs">
+                <li class="nav-item"><a class="nav-link @(tab == "staging" ? "active" : "")" href="" @onclick:preventDefault @onclick='() => tab = "staging"'>Formato_1019 (@staging.Count)</a></li>
+                <li class="nav-item"><a class="nav-link @(tab == "errores" ? "active" : "")" href="" @onclick:preventDefault @onclick='() => tab = "errores"'>Formato_Errores (@errores.Count)</a></li>
+                <li class="nav-item"><a class="nav-link @(tab == "definitivo" ? "active" : "")" href="" @onclick:preventDefault @onclick='() => tab = "definitivo"'>F_1019_Definitivo (@definitivo.Count)</a></li>
+            </ul>
+        </div>
+        <div class="card-body">
+            @if (cargandoTablas)
+            {
+                <p>Cargando...</p>
+            }
+            else if (tab == "staging")
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead><tr><th>Cliente</th><th>Cuenta</th><th>Concepto</th><th>Valor</th></tr></thead>
+                        <tbody>
+                            @foreach (var fila in staging)
+                            {
+                                <tr><td>@fila.NumeroDocumentoCliente</td><td>@fila.Linea</td><td>@fila.CodigoConcepto</td><td>@fila.Valor</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else if (tab == "errores")
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead><tr><th>Cliente</th><th>Código error</th><th>Descripción</th><th>Contexto</th></tr></thead>
+                        <tbody>
+                            @foreach (var fila in errores)
+                            {
+                                <tr><td>@fila.NumeroDocumentoCliente</td><td>@fila.CodigoError</td><td>@fila.DescripcionError</td><td>@fila.ValorInvalido</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead><tr><th>Cliente</th><th>Cuenta</th><th>Concepto</th><th>Valor</th></tr></thead>
+                        <tbody>
+                            @foreach (var fila in definitivo)
+                            {
+                                <tr><td>@fila.NumeroDocumentoCliente</td><td>@fila.Linea</td><td>@fila.CodigoConcepto</td><td>@fila.Valor</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-header">Generar archivo XML final para la DIAN</div>
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-md-2">
+                <label class="form-label">Número de envío</label>
+                <input type="number" class="form-control" @bind="numEnvio" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Concepto</label>
+                <select class="form-select" @bind="codCpt">
+                    <option value="1">1 - Inserción</option>
+                    <option value="2">2 - Reemplazo</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Fecha inicial</label>
+                <input type="date" class="form-control" @bind="fecInicial" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Fecha final</label>
+                <input type="date" class="form-control" @bind="fecFinal" />
+            </div>
+        </div>
+
+        <button class="btn btn-success mt-3" disabled="@exportando" @onclick="ExportarXmlAsync">
+            @(exportando ? "Generando..." : "Generar y descargar XML")
+        </button>
+
+        @if (erroresExportacion.Count > 0)
+        {
+            <ul class="text-danger mt-2">
+                @foreach (var error in erroresExportacion)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+@code {
+    private int periodoAno = DateTime.UtcNow.Year;
+    private bool clasificando;
+    private bool descargandoErrores;
+    private ResumenClasificacion? resumen;
+    private string? mensajeError;
+
+    private string tab = "staging";
+    private bool cargandoTablas;
+    private List<Formato1019ConceptoDto> staging = new();
+    private List<ErrorFormato1019Dto> errores = new();
+    private List<Formato1019ConceptoDto> definitivo = new();
+
+    private int numEnvio = 1;
+    private int codCpt = 1;
+    private DateTime fecInicial = new(DateTime.UtcNow.Year, 1, 1);
+    private DateTime fecFinal = new(DateTime.UtcNow.Year, 12, 31);
+    private bool exportando;
+    private List<string> erroresExportacion = new();
+
+    private async Task ClasificarAsync()
+    {
+        clasificando = true;
+        mensajeError = null;
+        resumen = null;
+        try
+        {
+            resumen = await Api.ClasificarAsync(periodoAno);
+            await CargarTablasAsync();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo clasificar el período: {ex.Message}";
+        }
+        finally
+        {
+            clasificando = false;
+        }
+    }
+
+    private async Task CargarTablasAsync()
+    {
+        cargandoTablas = true;
+        try
+        {
+            staging = await Api.ObtenerStagingAsync(periodoAno);
+            errores = await Api.ObtenerErroresAsync(periodoAno);
+            definitivo = await Api.ObtenerDefinitivoAsync(periodoAno);
+        }
+        finally
+        {
+            cargandoTablas = false;
+        }
+    }
+
+    private async Task DescargarErroresAsync()
+    {
+        descargandoErrores = true;
+        try
+        {
+            var (contenido, nombreArchivo) = await Api.DescargarErroresAsync(periodoAno);
+            await JS.InvokeVoidAsync(
+                "descargarArchivo",
+                nombreArchivo,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                Convert.ToBase64String(contenido));
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo descargar el archivo de errores: {ex.Message}";
+        }
+        finally
+        {
+            descargandoErrores = false;
+        }
+    }
+
+    private async Task ExportarXmlAsync()
+    {
+        exportando = true;
+        erroresExportacion.Clear();
+        try
+        {
+            var resultado = await Api.ExportarAsync(periodoAno, numEnvio, codCpt, fecInicial, fecFinal);
+            if (!resultado.Exitoso)
+            {
+                erroresExportacion = resultado.Errores;
+                return;
+            }
+
+            var (contenido, nombreArchivo) = resultado.Dato;
+            await JS.InvokeVoidAsync("descargarArchivo", nombreArchivo, "application/xml", Convert.ToBase64String(contenido));
+        }
+        finally
+        {
+            exportando = false;
+        }
+    }
+}

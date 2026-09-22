@@ -1,0 +1,218 @@
+@page "/cotitulares"
+@attribute [Authorize(Roles = "Admin")]
+@inject ExogenaApiClient Api
+
+<h3>Cotitulares</h3>
+
+@if (mensajeError is not null)
+{
+    <div class="alert alert-danger">@mensajeError</div>
+}
+
+<div class="card mb-4">
+    <div class="card-header">Nuevo cotitular</div>
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label">Cliente</label>
+                <select class="form-select" @bind="form.NumeroDocumentoCliente">
+                    <option value="">-- Selecciona --</option>
+                    @foreach (var cliente in clientes)
+                    {
+                        <option value="@cliente.NumeroDocumento">@cliente.NumeroDocumento - @NombreCliente(cliente)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Tipo Doc.</label>
+                <input class="form-control" @bind="form.TipoDocumento" placeholder="CC" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Número documento</label>
+                <input class="form-control" @bind="form.NumeroDocumento" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">% Participación</label>
+                <input type="number" class="form-control" @bind="form.Participacion" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Nombre completo</label>
+                <input class="form-control" @bind="form.NombreCompleto" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Relación con el cliente</label>
+                <input class="form-control" @bind="form.RelacionConCliente" />
+            </div>
+        </div>
+
+        @if (erroresForm.Count > 0)
+        {
+            <ul class="text-danger mt-2 mb-0">
+                @foreach (var error in erroresForm)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        }
+
+        <button class="btn btn-primary mt-3" disabled="@guardando" @onclick="GuardarAsync">
+            @(guardando ? "Guardando..." : "Crear")
+        </button>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Carga masiva (.xlsx o .csv)</div>
+    <div class="card-body">
+        <p class="text-muted">
+            Columnas esperadas: NumeroDocumentoCliente, TipoDocumento, NumeroDocumento, NombreCompleto,
+            Participacion, RelacionConCliente. El cliente debe existir previamente.
+        </p>
+        <InputFile OnChange="CargarArchivoAsync" accept=".xlsx,.csv" disabled="@cargandoArchivo" />
+
+        @if (resultadoCarga is not null)
+        {
+            <div class="alert @(resultadoCarga.ConErrores == 0 ? "alert-success" : "alert-warning") mt-3">
+                Total: @resultadoCarga.TotalFilas — Exitosas: @resultadoCarga.Exitosas — Con errores: @resultadoCarga.ConErrores
+            </div>
+
+            @if (resultadoCarga.Errores.Count > 0)
+            {
+                <table class="table table-sm">
+                    <thead><tr><th>Fila</th><th>Error</th></tr></thead>
+                    <tbody>
+                        @foreach (var error in resultadoCarga.Errores)
+                        {
+                            <tr><td>@error.Fila</td><td>@error.Mensaje</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Consultar cotitulares de un cliente</div>
+    <div class="card-body">
+        <select class="form-select mb-3" @bind="clienteConsultaDocumento" @bind:after="ConsultarAsync">
+            <option value="">-- Selecciona un cliente --</option>
+            @foreach (var cliente in clientes)
+            {
+                <option value="@cliente.NumeroDocumento">@cliente.NumeroDocumento - @NombreCliente(cliente)</option>
+            }
+        </select>
+
+        @if (cotitularesCliente is not null)
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr><th>Tipo Doc.</th><th>Número</th><th>Nombre</th><th>% Part.</th><th>Relación</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var cotitular in cotitularesCliente)
+                    {
+                        <tr>
+                            <td>@cotitular.TipoDocumento</td>
+                            <td>@cotitular.NumeroDocumento</td>
+                            <td>@cotitular.NombreCompleto</td>
+                            <td>@cotitular.Participacion</td>
+                            <td>@cotitular.RelacionConCliente</td>
+                            <td><button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarAsync(cotitular.CotitularId)">Eliminar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Cliente> clientes = new();
+    private CotitularDto form = new();
+    private List<string> erroresForm = new();
+    private string? mensajeError;
+    private bool guardando;
+    private bool cargandoArchivo;
+    private ResultadoCargaMasiva? resultadoCarga;
+
+    private string clienteConsultaDocumento = "";
+    private List<Cotitular>? cotitularesCliente;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            clientes = await Api.ListarClientesAsync();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo cargar la lista de clientes: {ex.Message}";
+        }
+    }
+
+    private static string NombreCliente(Cliente cliente)
+        => string.IsNullOrWhiteSpace(cliente.RazonSocial) ? $"{cliente.PrimerNombre} {cliente.PrimerApellido}" : cliente.RazonSocial!;
+
+    private async Task GuardarAsync()
+    {
+        guardando = true;
+        erroresForm.Clear();
+        try
+        {
+            var resultado = await Api.CrearCotitularAsync(form);
+            if (!resultado.Exitoso)
+            {
+                erroresForm = resultado.Errores;
+                return;
+            }
+
+            form = new CotitularDto();
+            if (!string.IsNullOrWhiteSpace(clienteConsultaDocumento))
+                await ConsultarAsync();
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private async Task CargarArchivoAsync(InputFileChangeEventArgs e)
+    {
+        cargandoArchivo = true;
+        resultadoCarga = null;
+        try
+        {
+            resultadoCarga = await Api.CargarCotitularesMasivoAsync(e.File);
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo procesar el archivo: {ex.Message}";
+        }
+        finally
+        {
+            cargandoArchivo = false;
+        }
+    }
+
+    private async Task ConsultarAsync()
+    {
+        if (string.IsNullOrWhiteSpace(clienteConsultaDocumento))
+        {
+            cotitularesCliente = null;
+            return;
+        }
+
+        var cliente = clientes.FirstOrDefault(c => c.NumeroDocumento == clienteConsultaDocumento);
+        if (cliente is null)
+            return;
+
+        cotitularesCliente = await Api.ListarCotitularesAsync(cliente.ClienteId);
+    }
+
+    private async Task EliminarAsync(Guid cotitularId)
+    {
+        await Api.EliminarCotitularAsync(cotitularId);
+        await ConsultarAsync();
+    }
+}
