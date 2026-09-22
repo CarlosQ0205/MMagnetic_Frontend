@@ -1,8 +1,17 @@
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace MMagnetic.UsersService.Front;
+
+/// <summary>Se lanza cuando el backend responde 401: el JWT expiró o no es válido. Las páginas la capturan para mostrar "vuelve a iniciar sesión" en vez del error crudo de HttpClient.</summary>
+public class SesionExpiradaException : Exception
+{
+    public SesionExpiradaException() : base("Tu sesión expiró. Por favor inicia sesión de nuevo.")
+    {
+    }
+}
 
 /// <summary>Cliente HTTP hacia MMagnetic.ExogenaService (Clientes, Cotitulares, Datos_Financieros, Formato 1019).</summary>
 public class ExogenaApiClient
@@ -18,11 +27,11 @@ public class ExogenaApiClient
 
     // ---------------- Clientes ----------------
 
-    public async Task<List<Cliente>> ListarClientesAsync()
-        => await _http.GetFromJsonAsync<List<Cliente>>("api/clientes") ?? new();
+    public Task<List<Cliente>> ListarClientesAsync()
+        => ObtenerAsync<List<Cliente>>("api/clientes", new());
 
-    public async Task<Cliente?> ObtenerClienteAsync(Guid clienteId)
-        => await _http.GetFromJsonAsync<Cliente>($"api/clientes/{clienteId}");
+    public Task<Cliente?> ObtenerClienteAsync(Guid clienteId)
+        => ObtenerAsync<Cliente?>($"api/clientes/{clienteId}", null);
 
     public Task<ResultadoApi<Cliente>> CrearClienteAsync(ClienteDto dto)
         => EnviarAsync<Cliente>(HttpMethod.Post, "api/clientes", dto);
@@ -33,6 +42,7 @@ public class ExogenaApiClient
     public async Task<bool> DesactivarClienteAsync(Guid clienteId)
     {
         var respuesta = await _http.DeleteAsync($"api/clientes/{clienteId}");
+        await LanzarSiSesionExpiroAsync(respuesta);
         return respuesta.IsSuccessStatusCode;
     }
 
@@ -41,8 +51,8 @@ public class ExogenaApiClient
 
     // ---------------- Cotitulares ----------------
 
-    public async Task<List<Cotitular>> ListarCotitularesAsync(Guid clienteId)
-        => await _http.GetFromJsonAsync<List<Cotitular>>($"api/cotitulares/cliente/{clienteId}") ?? new();
+    public Task<List<Cotitular>> ListarCotitularesAsync(Guid clienteId)
+        => ObtenerAsync<List<Cotitular>>($"api/cotitulares/cliente/{clienteId}", new());
 
     public Task<ResultadoApi<Cotitular>> CrearCotitularAsync(CotitularDto dto)
         => EnviarAsync<Cotitular>(HttpMethod.Post, "api/cotitulares", dto);
@@ -53,6 +63,7 @@ public class ExogenaApiClient
     public async Task<bool> EliminarCotitularAsync(Guid cotitularId)
     {
         var respuesta = await _http.DeleteAsync($"api/cotitulares/{cotitularId}");
+        await LanzarSiSesionExpiroAsync(respuesta);
         return respuesta.IsSuccessStatusCode;
     }
 
@@ -61,8 +72,8 @@ public class ExogenaApiClient
 
     // ---------------- Datos financieros ----------------
 
-    public async Task<List<DatoFinanciero>> ListarDatosFinancierosAsync(Guid clienteId)
-        => await _http.GetFromJsonAsync<List<DatoFinanciero>>($"api/datosfinancieros/cliente/{clienteId}") ?? new();
+    public Task<List<DatoFinanciero>> ListarDatosFinancierosAsync(Guid clienteId)
+        => ObtenerAsync<List<DatoFinanciero>>($"api/datosfinancieros/cliente/{clienteId}", new());
 
     public Task<ResultadoApi<DatoFinanciero>> CrearDatoFinancieroAsync(DatoFinancieroDto dto)
         => EnviarAsync<DatoFinanciero>(HttpMethod.Post, "api/datosfinancieros", dto);
@@ -73,6 +84,7 @@ public class ExogenaApiClient
     public async Task<bool> EliminarDatoFinancieroAsync(Guid datoFinancieroId)
     {
         var respuesta = await _http.DeleteAsync($"api/datosfinancieros/{datoFinancieroId}");
+        await LanzarSiSesionExpiroAsync(respuesta);
         return respuesta.IsSuccessStatusCode;
     }
 
@@ -84,28 +96,28 @@ public class ExogenaApiClient
     public async Task<ResumenClasificacion?> ClasificarAsync(int periodoAno)
     {
         var respuesta = await _http.PostAsync($"api/formato1019/clasificar/{periodoAno}", content: null);
+        await LanzarSiSesionExpiroAsync(respuesta);
         respuesta.EnsureSuccessStatusCode();
         return await respuesta.Content.ReadFromJsonAsync<ResumenClasificacion>();
     }
 
-    public async Task<List<Formato1019ConceptoDto>> ObtenerStagingAsync(int periodoAno)
-        => await _http.GetFromJsonAsync<List<Formato1019ConceptoDto>>($"api/formato1019/{periodoAno}") ?? new();
+    public Task<List<Formato1019ConceptoDto>> ObtenerStagingAsync(int periodoAno)
+        => ObtenerAsync<List<Formato1019ConceptoDto>>($"api/formato1019/{periodoAno}", new());
 
-    public async Task<List<ErrorFormato1019Dto>> ObtenerErroresAsync(int periodoAno)
-        => await _http.GetFromJsonAsync<List<ErrorFormato1019Dto>>($"api/formato1019/errores/{periodoAno}") ?? new();
+    public Task<(byte[] Contenido, string NombreArchivo)> DescargarStagingAsync(int periodoAno)
+        => DescargarArchivoAsync($"api/formato1019/{periodoAno}/exportar", $"formato1019_{periodoAno}.xlsx");
 
-    public async Task<(byte[] Contenido, string NombreArchivo)> DescargarErroresAsync(int periodoAno)
-    {
-        var respuesta = await _http.GetAsync($"api/formato1019/errores/{periodoAno}/exportar");
-        respuesta.EnsureSuccessStatusCode();
+    public Task<List<ErrorFormato1019Dto>> ObtenerErroresAsync(int periodoAno)
+        => ObtenerAsync<List<ErrorFormato1019Dto>>($"api/formato1019/errores/{periodoAno}", new());
 
-        var contenido = await respuesta.Content.ReadAsByteArrayAsync();
-        var nombreArchivo = respuesta.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? $"errores_formato1019_{periodoAno}.xlsx";
-        return (contenido, nombreArchivo);
-    }
+    public Task<(byte[] Contenido, string NombreArchivo)> DescargarErroresAsync(int periodoAno)
+        => DescargarArchivoAsync($"api/formato1019/errores/{periodoAno}/exportar", $"errores_formato1019_{periodoAno}.xlsx");
 
-    public async Task<List<Formato1019ConceptoDto>> ObtenerDefinitivoAsync(int periodoAno)
-        => await _http.GetFromJsonAsync<List<Formato1019ConceptoDto>>($"api/formato1019/definitivo/{periodoAno}") ?? new();
+    public Task<List<Formato1019ConceptoDto>> ObtenerDefinitivoAsync(int periodoAno)
+        => ObtenerAsync<List<Formato1019ConceptoDto>>($"api/formato1019/definitivo/{periodoAno}", new());
+
+    public Task<(byte[] Contenido, string NombreArchivo)> DescargarDefinitivoAsync(int periodoAno)
+        => DescargarArchivoAsync($"api/formato1019/definitivo/{periodoAno}/exportar", $"f1019_definitivo_{periodoAno}.xlsx");
 
     public async Task<ResultadoApi<(byte[] Contenido, string NombreArchivo)>> ExportarAsync(
         int periodoAno, int numEnvio, int codCpt, DateTime fecInicial, DateTime fecFinal)
@@ -115,6 +127,8 @@ public class ExogenaApiClient
                    $"&fecInicial={fecInicial:yyyy-MM-dd}&fecFinal={fecFinal:yyyy-MM-dd}";
 
         var respuesta = await _http.GetAsync(ruta);
+        await LanzarSiSesionExpiroAsync(respuesta);
+
         if (!respuesta.IsSuccessStatusCode)
         {
             var errores = await respuesta.Content.ReadFromJsonAsync<List<Dictionary<string, string>>>();
@@ -129,10 +143,30 @@ public class ExogenaApiClient
 
     // ---------------- Helpers ----------------
 
+    private async Task<T> ObtenerAsync<T>(string ruta, T valorPorDefecto)
+    {
+        var respuesta = await _http.GetAsync(ruta);
+        await LanzarSiSesionExpiroAsync(respuesta);
+        respuesta.EnsureSuccessStatusCode();
+        return await respuesta.Content.ReadFromJsonAsync<T>() ?? valorPorDefecto;
+    }
+
+    private async Task<(byte[] Contenido, string NombreArchivo)> DescargarArchivoAsync(string ruta, string nombrePorDefecto)
+    {
+        var respuesta = await _http.GetAsync(ruta);
+        await LanzarSiSesionExpiroAsync(respuesta);
+        respuesta.EnsureSuccessStatusCode();
+
+        var contenido = await respuesta.Content.ReadAsByteArrayAsync();
+        var nombreArchivo = respuesta.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? nombrePorDefecto;
+        return (contenido, nombreArchivo);
+    }
+
     private async Task<ResultadoApi<T>> EnviarAsync<T>(HttpMethod metodo, string ruta, object cuerpo)
     {
         var request = new HttpRequestMessage(metodo, ruta) { Content = JsonContent.Create(cuerpo) };
         var respuesta = await _http.SendAsync(request);
+        await LanzarSiSesionExpiroAsync(respuesta);
 
         if (respuesta.IsSuccessStatusCode)
         {
@@ -152,7 +186,16 @@ public class ExogenaApiClient
         contenido.Add(streamContent, "archivo", archivo.Name);
 
         var respuesta = await _http.PostAsync(ruta, contenido);
+        await LanzarSiSesionExpiroAsync(respuesta);
         respuesta.EnsureSuccessStatusCode();
         return await respuesta.Content.ReadFromJsonAsync<ResultadoCargaMasiva>();
+    }
+
+    private static Task LanzarSiSesionExpiroAsync(HttpResponseMessage respuesta)
+    {
+        if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            throw new SesionExpiradaException();
+
+        return Task.CompletedTask;
     }
 }

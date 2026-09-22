@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = "Admin")]
 @inject ExogenaApiClient Api
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 <h3>Formato 1019 (DIAN)</h3>
 
@@ -24,17 +25,6 @@
             <div class="alert @(resumen.ConErrores == 0 ? "alert-success" : "alert-warning") mt-3">
                 Total: @resumen.TotalRegistros — Válidos: @resumen.Validos — Con errores: @resumen.ConErrores
             </div>
-
-            @if (resumen.ConErrores > 0)
-            {
-                <button class="btn btn-outline-danger" disabled="@descargandoErrores" @onclick="DescargarErroresAsync">
-                    @(descargandoErrores ? "Generando..." : "Descargar errores (Excel)")
-                </button>
-                <p class="text-muted mt-2">
-                    Corrige la línea completa en el Excel y súbela de nuevo en
-                    <a href="clientes">Clientes</a> o Datos financieros. Luego vuelve a "Clasificar".
-                </p>
-            }
         }
 
         @if (mensajeError is not null)
@@ -46,6 +36,33 @@
 
 @if (resumen is not null)
 {
+    <div class="card mb-4">
+        <div class="card-header">Descargar resultados del período</div>
+        <div class="card-body">
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-outline-secondary" disabled="@descargando" @onclick="DescargarStagingAsync">
+                    1. Descargar Formato_1019 (@staging.Count)
+                </button>
+                <button class="btn btn-outline-danger" disabled="@descargando" @onclick="DescargarErroresAsync">
+                    2. Descargar Formato_Errores (@errores.Count)
+                </button>
+                <button class="btn btn-outline-success" disabled="@descargando" @onclick="DescargarDefinitivoAsync">
+                    3. Descargar F_1019_Definitivo (@definitivo.Count)
+                </button>
+            </div>
+
+            @if (errores.Count > 0)
+            {
+                <p class="text-muted mt-3 mb-0">
+                    El Excel de <strong>Formato_Errores</strong> trae la línea completa de cada cliente/cuenta con
+                    problema (no solo el dato que falló). Corrígela ahí y vuelve a subir el archivo en
+                    <a href="clientes">Clientes ▸ Información Clientes/Cotitulares/Datos Financieros</a> según
+                    corresponda. Luego vuelve a apretar "Clasificar" arriba — reemplaza el resultado anterior sin duplicar.
+                </p>
+            }
+        </div>
+    </div>
+
     <div class="card mb-4">
         <div class="card-header">
             <ul class="nav nav-tabs card-header-tabs">
@@ -149,7 +166,7 @@
 @code {
     private int periodoAno = DateTime.UtcNow.Year;
     private bool clasificando;
-    private bool descargandoErrores;
+    private bool descargando;
     private ResumenClasificacion? resumen;
     private string? mensajeError;
 
@@ -176,6 +193,10 @@
             resumen = await Api.ClasificarAsync(periodoAno);
             await CargarTablasAsync();
         }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
         catch (Exception ex)
         {
             mensajeError = $"No se pudo clasificar el período: {ex.Message}";
@@ -195,31 +216,43 @@
             errores = await Api.ObtenerErroresAsync(periodoAno);
             definitivo = await Api.ObtenerDefinitivoAsync(periodoAno);
         }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
         finally
         {
             cargandoTablas = false;
         }
     }
 
-    private async Task DescargarErroresAsync()
+    private Task DescargarStagingAsync() => DescargarAsync(Api.DescargarStagingAsync, "Formato_1019");
+    private Task DescargarErroresAsync() => DescargarAsync(Api.DescargarErroresAsync, "Formato_Errores");
+    private Task DescargarDefinitivoAsync() => DescargarAsync(Api.DescargarDefinitivoAsync, "F_1019_Definitivo");
+
+    private async Task DescargarAsync(Func<int, Task<(byte[] Contenido, string NombreArchivo)>> descarga, string etiqueta)
     {
-        descargandoErrores = true;
+        descargando = true;
         try
         {
-            var (contenido, nombreArchivo) = await Api.DescargarErroresAsync(periodoAno);
+            var (contenido, nombreArchivo) = await descarga(periodoAno);
             await JS.InvokeVoidAsync(
                 "descargarArchivo",
                 nombreArchivo,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 Convert.ToBase64String(contenido));
         }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
         catch (Exception ex)
         {
-            mensajeError = $"No se pudo descargar el archivo de errores: {ex.Message}";
+            mensajeError = $"No se pudo descargar {etiqueta}: {ex.Message}";
         }
         finally
         {
-            descargandoErrores = false;
+            descargando = false;
         }
     }
 
@@ -238,6 +271,10 @@
 
             var (contenido, nombreArchivo) = resultado.Dato;
             await JS.InvokeVoidAsync("descargarArchivo", nombreArchivo, "application/xml", Convert.ToBase64String(contenido));
+        }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
         }
         finally
         {

@@ -1,6 +1,7 @@
 @page "/datos-financieros"
 @attribute [Authorize(Roles = "Admin")]
 @inject ExogenaApiClient Api
+@inject NavigationManager Nav
 
 <h3>Datos financieros</h3>
 
@@ -192,6 +193,10 @@
         {
             clientes = await Api.ListarClientesAsync();
         }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
         catch (Exception ex)
         {
             mensajeError = $"No se pudo cargar la lista de clientes: {ex.Message}";
@@ -218,6 +223,10 @@
             if (!string.IsNullOrWhiteSpace(clienteConsultaDocumento))
                 await ConsultarAsync();
         }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
         finally
         {
             guardando = false;
@@ -231,6 +240,10 @@
         try
         {
             resultadoCarga = await Api.CargarDatosFinancierosMasivoAsync(e.File);
+        }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
         }
         catch (Exception ex)
         {
@@ -254,12 +267,26 @@
         if (cliente is null)
             return;
 
-        datosCliente = await Api.ListarDatosFinancierosAsync(cliente.ClienteId);
+        try
+        {
+            datosCliente = await Api.ListarDatosFinancierosAsync(cliente.ClienteId);
+        }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
     }
 
     private async Task EliminarAsync(Guid datoFinancieroId)
     {
-        await Api.EliminarDatoFinancieroAsync(datoFinancieroId);
-        await ConsultarAsync();
+        try
+        {
+            await Api.EliminarDatoFinancieroAsync(datoFinancieroId);
+            await ConsultarAsync();
+        }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
     }
 }

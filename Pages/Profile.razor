@@ -1,9 +1,14 @@
 @page "/profile"
 @inject AuthService AuthService
+@inject NavigationManager Nav
 
 <h3>Perfil</h3>
 
-@if (user is null)
+@if (mensajeError is not null)
+{
+    <div class="alert alert-danger">@mensajeError</div>
+}
+else if (user is null)
 {
     <p>Loading...</p>
 }
@@ -18,9 +23,21 @@ else
 
 @code {
     private AuthService.UserInfo? user;
+    private string? mensajeError;
 
     protected override async Task OnInitializedAsync()
     {
-        user = await AuthService.GetCurrentUserAsync();
+        try
+        {
+            user = await AuthService.GetCurrentUserAsync();
+        }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"No se pudo cargar el perfil: {ex.Message}";
+        }
     }
 }

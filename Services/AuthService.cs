@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using Blazored.LocalStorage;
 
@@ -47,7 +48,15 @@ public class AuthService
     public async Task<UserInfo?> GetCurrentUserAsync()
     {
         var token = await _localStorage.GetItemAsync<string>("authToken");
-        return string.IsNullOrWhiteSpace(token) ? null : await _http.GetFromJsonAsync<UserInfo>("api/auth/me");
+        if (string.IsNullOrWhiteSpace(token))
+            return null;
+
+        var respuesta = await _http.GetAsync("api/auth/me");
+        if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            throw new SesionExpiradaException();
+
+        respuesta.EnsureSuccessStatusCode();
+        return await respuesta.Content.ReadFromJsonAsync<UserInfo>();
     }
 
     public record LoginRequest(string TipoDocumento, string NumeroDocumento, string Password);

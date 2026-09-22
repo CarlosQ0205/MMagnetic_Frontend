@@ -1,12 +1,21 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject AuthService AuthService
+@inject NavigationManager Nav
+
 <div class="page">
     <div class="sidebar">
         <NavMenu />
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        <div class="top-row top-row-izquierda px-4">
+            <AuthorizeView>
+                <Authorized>
+                    <a href="" @onclick="CerrarSesion" @onclick:preventDefault>
+                        <span class="bi bi-box-arrow-right" aria-hidden="true"></span> Cerrar sesión
+                    </a>
+                </Authorized>
+            </AuthorizeView>
         </div>
 
         <article class="content px-4">
@@ -14,3 +23,11 @@
         </article>
     </main>
 </div>
+
+@code {
+    private async Task CerrarSesion()
+    {
+        await AuthService.LogoutAsync();
+        Nav.NavigateTo("/", forceLoad: true);
+    }
+}

@@ -1,6 +1,7 @@
 @page "/cotitulares"
 @attribute [Authorize(Roles = "Admin")]
 @inject ExogenaApiClient Api
+@inject NavigationManager Nav
 
 <h3>Cotitulares</h3>
 
@@ -145,6 +146,10 @@
         {
             clientes = await Api.ListarClientesAsync();
         }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
         catch (Exception ex)
         {
             mensajeError = $"No se pudo cargar la lista de clientes: {ex.Message}";
@@ -171,6 +176,10 @@
             if (!string.IsNullOrWhiteSpace(clienteConsultaDocumento))
                 await ConsultarAsync();
         }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
         finally
         {
             guardando = false;
@@ -184,6 +193,10 @@
         try
         {
             resultadoCarga = await Api.CargarCotitularesMasivoAsync(e.File);
+        }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
         }
         catch (Exception ex)
         {
@@ -207,12 +220,26 @@
         if (cliente is null)
             return;
 
-        cotitularesCliente = await Api.ListarCotitularesAsync(cliente.ClienteId);
+        try
+        {
+            cotitularesCliente = await Api.ListarCotitularesAsync(cliente.ClienteId);
+        }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
     }
 
     private async Task EliminarAsync(Guid cotitularId)
     {
-        await Api.EliminarCotitularAsync(cotitularId);
-        await ConsultarAsync();
+        try
+        {
+            await Api.EliminarCotitularAsync(cotitularId);
+            await ConsultarAsync();
+        }
+        catch (SesionExpiradaException)
+        {
+            Nav.NavigateTo("login");
+        }
     }
 }
