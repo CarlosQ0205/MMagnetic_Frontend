@@ -61,22 +61,13 @@
         <div class="card-header">Subir corregidos F-1019</div>
         <div class="card-body">
             <p class="text-muted">
-                El Excel de <strong>Formato_Errores</strong> trae la línea completa de cada cliente/cuenta con
-                problema. Corrígela ahí y vuelve a subir el archivo correspondiente aquí mismo (usa el mismo
-                formato de columnas de la carga masiva de Clientes o Datos Financieros). Luego vuelve a apretar
-                "Crear Formato 1019" arriba — reemplaza el resultado anterior sin duplicar.
+                Toma el mismo Excel que descargaste en <strong>Descarga errores F-1019</strong> — ya trae la línea
+                completa de cada cuenta con problema (datos del cliente y datos financieros en una sola fila) más
+                la columna "Errores". Corrígelo ahí y súbelo tal cual aquí; no hace falta separarlo por tabla.
+                Luego vuelve a apretar "Crear Formato 1019" arriba — reemplaza el resultado anterior sin duplicar.
             </p>
 
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Clientes / Cotitulares corregidos (.xlsx o .csv)</label>
-                    <InputFile OnChange="CargarClientesCorregidosAsync" accept=".xlsx,.csv" disabled="@cargandoArchivo" />
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Datos financieros corregidos (.xlsx o .csv)</label>
-                    <InputFile OnChange="CargarDatosFinancierosCorregidosAsync" accept=".xlsx,.csv" disabled="@cargandoArchivo" />
-                </div>
-            </div>
+            <InputFile OnChange="CargarCorregidosAsync" accept=".xlsx,.csv" disabled="@cargandoArchivo" />
 
             @if (resultadoCarga is not null)
             {
@@ -292,14 +283,14 @@
         mostrarSubirCorregidos = !mostrarSubirCorregidos;
     }
 
-    private async Task CargarClientesCorregidosAsync(InputFileChangeEventArgs e)
+    private async Task CargarCorregidosAsync(InputFileChangeEventArgs e)
     {
         cargandoArchivo = true;
         resultadoCarga = null;
         mensajeError = null;
         try
         {
-            resultadoCarga = await Api.CargarClientesMasivoAsync(e.File);
+            resultadoCarga = await Api.CargarCorregidosF1019Async(e.File);
         }
         catch (SesionExpiradaException)
         {
@@ -307,30 +298,7 @@
         }
         catch (Exception ex)
         {
-            mensajeError = $"No se pudo procesar el archivo de clientes: {ex.Message}";
-        }
-        finally
-        {
-            cargandoArchivo = false;
-        }
-    }
-
-    private async Task CargarDatosFinancierosCorregidosAsync(InputFileChangeEventArgs e)
-    {
-        cargandoArchivo = true;
-        resultadoCarga = null;
-        mensajeError = null;
-        try
-        {
-            resultadoCarga = await Api.CargarDatosFinancierosMasivoAsync(e.File);
-        }
-        catch (SesionExpiradaException)
-        {
-            Nav.NavigateTo("login");
-        }
-        catch (Exception ex)
-        {
-            mensajeError = $"No se pudo procesar el archivo de datos financieros: {ex.Message}";
+            mensajeError = $"No se pudo procesar el archivo de corregidos: {ex.Message}";
         }
         finally
         {

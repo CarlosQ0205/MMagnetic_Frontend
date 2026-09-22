@@ -126,6 +126,9 @@ public class ExogenaApiClient
         respuesta.EnsureSuccessStatusCode();
     }
 
+    public Task<ResultadoCargaMasiva?> CargarCorregidosF1019Async(IBrowserFile archivo)
+        => SubirArchivoAsync("api/formato1019/corregidos", archivo);
+
     public async Task<ResultadoApi<(byte[] Contenido, string NombreArchivo)>> ExportarAsync(
         int periodoAno, int numEnvio, int codCpt, DateTime fecInicial, DateTime fecFinal)
     {
