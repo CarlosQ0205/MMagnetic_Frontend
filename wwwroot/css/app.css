@@ -44,6 +44,12 @@ a, .btn-link {
     padding-top: 1.1rem;
 }
 
+.mm-logo {
+    max-width: 260px;
+    width: 100%;
+    height: auto;
+}
+
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #26b050;
 }
