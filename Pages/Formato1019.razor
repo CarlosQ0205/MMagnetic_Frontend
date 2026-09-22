@@ -31,8 +31,8 @@
             <button class="btn btn-f1019" @onclick="ToggleSubirCorregidos">
                 Subir corregidos F-1019
             </button>
-            <button class="btn btn-f1019" disabled="@descargando" @onclick="DescargarDefinitivoAsync">
-                Descarga F-1019 Definitivos
+            <button class="btn btn-f1019" @onclick="ToggleGenerarXml">
+                Descargar F-1019 definitivo
             </button>
         </div>
 
@@ -158,41 +158,21 @@
     <div class="card">
         <div class="card-header">Generar archivo XML final para la DIAN</div>
         <div class="card-body">
-            <div class="row g-2">
-                <div class="col-md-2">
-                    <label class="form-label">Número de envío</label>
-                    <input type="number" class="form-control" @bind="numEnvio" />
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Concepto</label>
-                    <select class="form-select" @bind="codCpt">
-                        <option value="1">1 - Inserción</option>
-                        <option value="2">2 - Reemplazo</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Fecha inicial</label>
-                    <input type="date" class="form-control" @bind="fecInicial" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Fecha final</label>
-                    <input type="date" class="form-control" @bind="fecFinal" />
-                </div>
+            <p class="text-muted">
+                Genera F_1019_Definitivo del período completo, dividido en archivos de máximo
+                5.000 registros cada uno (el límite del Anexo 2 por envío), comprimidos en un
+                .zip. Descárgalo en el formato que necesites y pásalo por el pre-validador de
+                la DIAN, que es donde se asignan el número de envío, el concepto y las fechas.
+            </p>
+
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-f1019" disabled="@exportando" @onclick="DescargarLotesXmlAsync">
+                    @(exportando ? "Generando..." : "Descargar en XML")
+                </button>
+                <button class="btn btn-f1019" disabled="@exportando" @onclick="DescargarLotesExcelAsync">
+                    @(exportando ? "Generando..." : "Descargar en Excel")
+                </button>
             </div>
-
-            <button class="btn btn-f1019 mt-3" disabled="@exportando" @onclick="ExportarXmlAsync">
-                @(exportando ? "Generando..." : "Generar y descargar XML")
-            </button>
-
-            @if (erroresExportacion.Count > 0)
-            {
-                <ul class="text-danger mt-2">
-                    @foreach (var error in erroresExportacion)
-                    {
-                        <li>@error</li>
-                    }
-                </ul>
-            }
         </div>
     </div>
 }
@@ -216,12 +196,7 @@
     private List<ErrorFormato1019Dto> errores = new();
     private List<Formato1019ConceptoDto> definitivo = new();
 
-    private int numEnvio = 1;
-    private int codCpt = 1;
-    private DateTime fecInicial = new(DateTime.UtcNow.Year, 1, 1);
-    private DateTime fecFinal = new(DateTime.UtcNow.Year, 12, 31);
     private bool exportando;
-    private List<string> erroresExportacion = new();
     private bool mostrarGenerarXml;
 
     private async Task ClasificarAsync()
@@ -332,24 +307,26 @@
     private Task DescargarStagingAsync() => DescargarAsync(Api.DescargarStagingAsync, "Formato_1019");
     private Task DescargarErroresAsync() => DescargarAsync(Api.DescargarErroresAsync, "Formato_Errores");
 
-    private async Task DescargarDefinitivoAsync()
+    private void ToggleGenerarXml()
     {
-        await DescargarAsync(Api.DescargarDefinitivoAsync, "F_1019_Definitivo");
-        mostrarGenerarXml = true;
+        mostrarGenerarXml = !mostrarGenerarXml;
     }
 
-    private async Task DescargarAsync(Func<int, Task<(byte[] Contenido, string NombreArchivo)>> descarga, string etiqueta)
+    private Task DescargarLotesXmlAsync() => DescargarAsync(Api.DescargarLotesXmlAsync, "F-1019 definitivo en XML", esLote: true);
+    private Task DescargarLotesExcelAsync() => DescargarAsync(Api.DescargarLotesExcelAsync, "F-1019 definitivo en Excel", esLote: true);
+
+    private async Task DescargarAsync(
+        Func<int, Task<(byte[] Contenido, string NombreArchivo)>> descarga, string etiqueta, bool esLote = false)
     {
-        descargando = true;
+        if (esLote) exportando = true; else descargando = true;
         mensajeError = null;
         try
         {
             var (contenido, nombreArchivo) = await descarga(periodoAno);
-            await JS.InvokeVoidAsync(
-                "descargarArchivo",
-                nombreArchivo,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                Convert.ToBase64String(contenido));
+            var tipoContenido = nombreArchivo.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                ? "application/zip"
+                : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            await JS.InvokeVoidAsync("descargarArchivo", nombreArchivo, tipoContenido, Convert.ToBase64String(contenido));
         }
         catch (SesionExpiradaException)
         {
@@ -361,33 +338,7 @@
         }
         finally
         {
-            descargando = false;
-        }
-    }
-
-    private async Task ExportarXmlAsync()
-    {
-        exportando = true;
-        erroresExportacion.Clear();
-        try
-        {
-            var resultado = await Api.ExportarAsync(periodoAno, numEnvio, codCpt, fecInicial, fecFinal);
-            if (!resultado.Exitoso)
-            {
-                erroresExportacion = resultado.Errores;
-                return;
-            }
-
-            var (contenido, nombreArchivo) = resultado.Dato;
-            await JS.InvokeVoidAsync("descargarArchivo", nombreArchivo, "application/xml", Convert.ToBase64String(contenido));
-        }
-        catch (SesionExpiradaException)
-        {
-            Nav.NavigateTo("login");
-        }
-        finally
-        {
-            exportando = false;
+            if (esLote) exportando = false; else descargando = false;
         }
     }
 }

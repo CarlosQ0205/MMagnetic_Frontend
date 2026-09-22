@@ -129,27 +129,16 @@ public class ExogenaApiClient
     public Task<ResultadoCargaMasiva?> CargarCorregidosF1019Async(IBrowserFile archivo)
         => SubirArchivoAsync("api/formato1019/corregidos", archivo);
 
-    public async Task<ResultadoApi<(byte[] Contenido, string NombreArchivo)>> ExportarAsync(
-        int periodoAno, int numEnvio, int codCpt, DateTime fecInicial, DateTime fecFinal)
-    {
-        var ruta = $"api/formato1019/exportar/{periodoAno}" +
-                   $"?numEnvio={numEnvio}&codCpt={codCpt}" +
-                   $"&fecInicial={fecInicial:yyyy-MM-dd}&fecFinal={fecFinal:yyyy-MM-dd}";
+    /// <summary>
+    /// Descarga F_1019_Definitivo del período como uno o varios .xml (máximo 5000 "movcta"
+    /// cada uno, comprimidos en un .zip), listos para pasar por el pre-validador de la DIAN.
+    /// </summary>
+    public Task<(byte[] Contenido, string NombreArchivo)> DescargarLotesXmlAsync(int periodoAno)
+        => DescargarArchivoAsync($"api/formato1019/definitivo/{periodoAno}/lotes/xml", $"f1019_definitivo_{periodoAno}_xml.zip");
 
-        var respuesta = await _http.GetAsync(ruta);
-        await LanzarSiSesionExpiroAsync(respuesta);
-
-        if (!respuesta.IsSuccessStatusCode)
-        {
-            var errores = await respuesta.Content.ReadFromJsonAsync<List<Dictionary<string, string>>>();
-            var mensajes = errores?.Select(e => e.GetValueOrDefault("mensaje", "Error desconocido")).ToList() ?? new();
-            return new ResultadoApi<(byte[], string)> { Exitoso = false, Errores = mensajes };
-        }
-
-        var contenido = await respuesta.Content.ReadAsByteArrayAsync();
-        var nombreArchivo = respuesta.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? $"formato1019_{periodoAno}.xml";
-        return new ResultadoApi<(byte[], string)> { Exitoso = true, Dato = (contenido, nombreArchivo) };
-    }
+    /// <summary>Igual que <see cref="DescargarLotesXmlAsync"/> pero en Excel.</summary>
+    public Task<(byte[] Contenido, string NombreArchivo)> DescargarLotesExcelAsync(int periodoAno)
+        => DescargarArchivoAsync($"api/formato1019/definitivo/{periodoAno}/lotes/excel", $"f1019_definitivo_{periodoAno}_excel.zip");
 
     // ---------------- Helpers ----------------
 
