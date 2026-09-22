@@ -16,22 +16,22 @@
         </div>
 
         <div class="d-flex flex-wrap gap-2 mt-3">
-            <button class="btn btn-primary" disabled="@clasificando" @onclick="ClasificarAsync">
+            <button class="btn btn-f1019" disabled="@clasificando" @onclick="ClasificarAsync">
                 @(clasificando ? "Creando..." : "Crear Formato 1019")
             </button>
-            <button class="btn btn-outline-secondary" disabled="@descargando" @onclick="DescargarStagingAsync">
+            <button class="btn btn-f1019" disabled="@descargando" @onclick="DescargarStagingAsync">
                 Descarga Formato 1019
             </button>
-            <button class="btn btn-outline-danger" disabled="@borrando" @onclick="BorrarPeriodoAsync">
+            <button class="btn btn-f1019" disabled="@borrando" @onclick="BorrarPeriodoAsync">
                 @(borrando ? "Borrando..." : "Borra tabla Formato 1019")
             </button>
-            <button class="btn btn-outline-danger" disabled="@descargando" @onclick="DescargarErroresAsync">
+            <button class="btn btn-f1019" disabled="@descargando" @onclick="DescargarErroresAsync">
                 Descarga errores F-1019
             </button>
-            <button class="btn btn-outline-primary" @onclick="ToggleSubirCorregidos">
+            <button class="btn btn-f1019" @onclick="ToggleSubirCorregidos">
                 Subir corregidos F-1019
             </button>
-            <button class="btn btn-outline-success" disabled="@descargando" @onclick="DescargarDefinitivoAsync">
+            <button class="btn btn-f1019" disabled="@descargando" @onclick="DescargarDefinitivoAsync">
                 Descarga F-1019 Definitivos
             </button>
         </div>
@@ -153,51 +153,51 @@
     </div>
 }
 
-<div class="card">
-    <div class="card-header">Generar archivo XML final para la DIAN</div>
-    <div class="card-body">
-        <div class="row g-2">
-            <div class="col-md-2">
-                <label class="form-label">Número de envío</label>
-                <input type="number" class="form-control" @bind="numEnvio" />
+@if (mostrarGenerarXml)
+{
+    <div class="card">
+        <div class="card-header">Generar archivo XML final para la DIAN</div>
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-2">
+                    <label class="form-label">Número de envío</label>
+                    <input type="number" class="form-control" @bind="numEnvio" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Concepto</label>
+                    <select class="form-select" @bind="codCpt">
+                        <option value="1">1 - Inserción</option>
+                        <option value="2">2 - Reemplazo</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fecha inicial</label>
+                    <input type="date" class="form-control" @bind="fecInicial" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fecha final</label>
+                    <input type="date" class="form-control" @bind="fecFinal" />
+                </div>
             </div>
-            <div class="col-md-2">
-                <label class="form-label">Concepto</label>
-                <select class="form-select" @bind="codCpt">
-                    <option value="1">1 - Inserción</option>
-                    <option value="2">2 - Reemplazo</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Fecha inicial</label>
-                <input type="date" class="form-control" @bind="fecInicial" />
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Fecha final</label>
-                <input type="date" class="form-control" @bind="fecFinal" />
-            </div>
+
+            <button class="btn btn-f1019 mt-3" disabled="@exportando" @onclick="ExportarXmlAsync">
+                @(exportando ? "Generando..." : "Generar y descargar XML")
+            </button>
+
+            @if (erroresExportacion.Count > 0)
+            {
+                <ul class="text-danger mt-2">
+                    @foreach (var error in erroresExportacion)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            }
         </div>
-
-        <button class="btn btn-success mt-3" disabled="@exportando" @onclick="ExportarXmlAsync">
-            @(exportando ? "Generando..." : "Generar y descargar XML")
-        </button>
-
-        @if (erroresExportacion.Count > 0)
-        {
-            <ul class="text-danger mt-2">
-                @foreach (var error in erroresExportacion)
-                {
-                    <li>@error</li>
-                }
-            </ul>
-        }
     </div>
-</div>
+}
 
 @code {
-    [SupplyParameterFromQuery]
-    private string? Accion { get; set; }
-
     private int periodoAno = DateTime.UtcNow.Year;
     private bool clasificando;
     private bool descargando;
@@ -222,38 +222,7 @@
     private DateTime fecFinal = new(DateTime.UtcNow.Year, 12, 31);
     private bool exportando;
     private List<string> erroresExportacion = new();
-
-    private string? accionEjecutada;
-
-    protected override async Task OnParametersSetAsync()
-    {
-        if (string.IsNullOrEmpty(Accion) || Accion == accionEjecutada)
-            return;
-
-        accionEjecutada = Accion;
-
-        switch (Accion)
-        {
-            case "crear":
-                await ClasificarAsync();
-                break;
-            case "descarga-f1019":
-                await DescargarStagingAsync();
-                break;
-            case "borrar":
-                await BorrarPeriodoAsync();
-                break;
-            case "descarga-errores":
-                await DescargarErroresAsync();
-                break;
-            case "subir-corregidos":
-                mostrarSubirCorregidos = true;
-                break;
-            case "descarga-definitivo":
-                await DescargarDefinitivoAsync();
-                break;
-        }
-    }
+    private bool mostrarGenerarXml;
 
     private async Task ClasificarAsync()
     {
@@ -362,7 +331,12 @@
 
     private Task DescargarStagingAsync() => DescargarAsync(Api.DescargarStagingAsync, "Formato_1019");
     private Task DescargarErroresAsync() => DescargarAsync(Api.DescargarErroresAsync, "Formato_Errores");
-    private Task DescargarDefinitivoAsync() => DescargarAsync(Api.DescargarDefinitivoAsync, "F_1019_Definitivo");
+
+    private async Task DescargarDefinitivoAsync()
+    {
+        await DescargarAsync(Api.DescargarDefinitivoAsync, "F_1019_Definitivo");
+        mostrarGenerarXml = true;
+    }
 
     private async Task DescargarAsync(Func<int, Task<(byte[] Contenido, string NombreArchivo)>> descarga, string etiqueta)
     {

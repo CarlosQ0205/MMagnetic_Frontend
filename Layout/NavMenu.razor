@@ -31,18 +31,10 @@
                                 <li><NavLink class="dropdown-item" href="datos-financieros">Información Datos Financieros</NavLink></li>
                             </ul>
                         </div>
-                        <div class="nav-item px-3 dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" @onclick:preventDefault>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="formato1019">
                                 <span class="bi bi-file-earmark-text" aria-hidden="true"></span> Formato 1019
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li><NavLink class="dropdown-item" href="formato1019?accion=crear">Crear Formato 1019</NavLink></li>
-                                <li><NavLink class="dropdown-item" href="formato1019?accion=descarga-f1019">Descarga Formato 1019</NavLink></li>
-                                <li><NavLink class="dropdown-item" href="formato1019?accion=borrar">Borra tabla Formato 1019</NavLink></li>
-                                <li><NavLink class="dropdown-item" href="formato1019?accion=descarga-errores">Descarga errores F-1019</NavLink></li>
-                                <li><NavLink class="dropdown-item" href="formato1019?accion=subir-corregidos">Subir corregidos F-1019</NavLink></li>
-                                <li><NavLink class="dropdown-item" href="formato1019?accion=descarga-definitivo">Descarga F-1019 Definitivos</NavLink></li>
-                            </ul>
+                            </NavLink>
                         </div>
                     </Authorized>
                 </AuthorizeView>

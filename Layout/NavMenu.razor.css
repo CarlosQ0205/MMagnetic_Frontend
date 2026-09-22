@@ -17,11 +17,11 @@
     margin: 0.4rem 0;
 }
 
-.dropdown-item {
+.dropdown-menu ::deep a.dropdown-item {
     color: #064E3B;
 }
 
-    .dropdown-item:hover, .dropdown-item:focus {
+    .dropdown-menu ::deep a.dropdown-item:hover, .dropdown-menu ::deep a.dropdown-item:focus {
         color: #064E3B;
         background-color: rgba(6, 78, 59, 0.1);
     }

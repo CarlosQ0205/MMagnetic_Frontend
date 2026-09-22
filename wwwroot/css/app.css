@@ -44,6 +44,18 @@ a, .btn-link {
     padding-top: 1.1rem;
 }
 
+.btn-f1019 {
+    color: var(--mm-nav);
+    border: 1px solid var(--mm-nav);
+    background-color: transparent;
+}
+
+    .btn-f1019:hover, .btn-f1019:active, .btn-f1019:focus {
+        color: var(--mm-nav);
+        background-color: rgba(6, 78, 59, 0.1);
+        border-color: var(--mm-nav);
+    }
+
 .mm-logo {
     max-width: 420px;
     width: 100%;
