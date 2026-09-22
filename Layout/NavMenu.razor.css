@@ -3,7 +3,7 @@
 }
 
 .top-row {
-    min-height: 4.5rem;
+    min-height: 5.5rem;
     background-color: rgba(0,0,0,0.4);
 }
 
@@ -12,10 +12,19 @@
 }
 
 .navbar-brand-logo {
-    height: 68px;
+    height: 88px;
     width: auto;
     margin: 0.4rem 0;
 }
+
+.dropdown-item {
+    color: #064E3B;
+}
+
+    .dropdown-item:hover, .dropdown-item:focus {
+        color: #064E3B;
+        background-color: rgba(6, 78, 59, 0.1);
+    }
 
 .bi {
     display: inline-block;

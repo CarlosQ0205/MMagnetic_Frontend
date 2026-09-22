@@ -195,6 +195,9 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery]
+    private string? Accion { get; set; }
+
     private int periodoAno = DateTime.UtcNow.Year;
     private bool clasificando;
     private bool descargando;
@@ -219,6 +222,38 @@
     private DateTime fecFinal = new(DateTime.UtcNow.Year, 12, 31);
     private bool exportando;
     private List<string> erroresExportacion = new();
+
+    private string? accionEjecutada;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.IsNullOrEmpty(Accion) || Accion == accionEjecutada)
+            return;
+
+        accionEjecutada = Accion;
+
+        switch (Accion)
+        {
+            case "crear":
+                await ClasificarAsync();
+                break;
+            case "descarga-f1019":
+                await DescargarStagingAsync();
+                break;
+            case "borrar":
+                await BorrarPeriodoAsync();
+                break;
+            case "descarga-errores":
+                await DescargarErroresAsync();
+                break;
+            case "subir-corregidos":
+                mostrarSubirCorregidos = true;
+                break;
+            case "descarga-definitivo":
+                await DescargarDefinitivoAsync();
+                break;
+        }
+    }
 
     private async Task ClasificarAsync()
     {
